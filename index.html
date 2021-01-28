@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Badminton score and serve tracker</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.12/dist/vue.js"></script>
+
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@500&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Roboto', sans-serif;
+            font-family: 'Roboto Mono', monospace;
+        }
+
+        .container {
+            height: 100vh;
+            width: 100vw;
+            background: lightblue;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .settings {
+            padding: 5px;
+        }
+
+        .net {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            top: -30%;
+            height: 130%;
+            pointer-events: none;
+        }
+
+        .court { 
+            position: relative;
+            flex: 6;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: stretch;
+        }
+
+        .court-part {
+            background: #389a64;
+            border: 5px solid #d4d4d4;
+            box-sizing: border-box;
+            flex: 0 0 50%;
+            height: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .court-part.is-serving {
+            background: #e03a3a;
+        }
+
+        .ball {
+            width: 200px;
+        }
+
+        .sidebar {
+            flex: 1;
+            display: flex;
+        }
+
+        .team {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .big-message {
+            padding: 50px;
+            text-align: center;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 60px;
+            background: green;
+            color: white;
+            z-index: 10000;
+        }
+
+        .score {
+            font-size: 100px;
+        }
+    </style>
+
+</head>
+
+<body>
+    <div class="container" id="app">
+        <div class="settings">
+            <label>Score to win:
+                <input style="width: 30px;" v-model.number="scoreToWin" />
+            </label> - 
+            <button @click="reset">Reset game</button>
+        </div>
+
+        <div class="big-message" v-if="message">
+            {{message}}
+        </div>
+
+        <div class="sidebar">
+
+            <div v-for="team in teams" class="team">
+                <span>
+                Team <input class="team-name" v-model="team.name" />
+
+                score is <span class="score">{{ team.score }}</span>
+            </div>
+        </div>
+
+        <div class="court">
+            <img src="net4.svg" class="net" />
+            <div @click="serving = part" :class="{'is-serving': part === serving}" class="court-part"
+                v-for="part of court" :key="part">
+                <img src="ball.png" class="ball" v-if="part === serving" />
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        var SpeechRecognition = SpeechRecognition || webkitSpeechRecognition
+        var SpeechGrammarList = SpeechGrammarList || webkitSpeechGrammarList
+        var SpeechRecognitionEvent = SpeechRecognitionEvent || webkitSpeechRecognitionEvent
+
+        new Vue({
+            el: "#app",
+            data() {
+                return {
+                    message: null,
+                    serving: 1,
+                    court: [
+                        2, 3,
+                        1, 4
+                    ],
+                    scoreToWin: 11,
+                    teams: [
+                        {
+                            name: 'left',
+                            score: 0
+                        },
+                        {
+                            name: 'right',
+                            score: 0
+                        }
+                    ]
+                }
+            },
+            mounted() {
+                this.setup()
+            },
+            methods: {
+                setup() {
+                    const recognition = new SpeechRecognition();
+                    const speechRecognitionList = new SpeechGrammarList();
+                    const grammar = `#JSGF V1.0; grammar commands; public <command> =  ${this.teams.map(team => team.name).join(' | ')};`
+                    speechRecognitionList.addFromString(grammar, 1);
+                    recognition.grammars = speechRecognitionList;
+                    recognition.continuous = true;
+                    recognition.lang = 'en-US';
+                    recognition.interimResults = false;
+                    recognition.maxAlternatives = 10;
+                    recognition.start();
+                    recognition.onresult = (event) => {
+                        const results = event.results[event.results.length - 1]
+
+                        for (const result of results) {
+                            console.log('Transcript', result.transcript)
+                            console.log('Confidence: ' + result.confidence);
+
+                            const words = result.transcript.toLowerCase().trim()
+
+                            if (words === 'reset') {
+                                this.reset()
+                            } else {
+                                const team = this.teams.find(team => team.name.trim().toLowerCase().indexOf(words) !== -1)
+
+                                if (team) {
+                                    this.score(team)
+                                }
+                            }
+                            
+                        }
+                    }
+                },
+                score(team) {
+                    team.score++;
+                    this.serving = (this.serving % this.court.length) + 1
+
+                    if (team.score === this.scoreToWin) {
+                        this.message = `${team.name} won! starting a new game in 10 seconds`
+                        setTimeout(() => {
+                            this.reset()
+                            this.message = null
+                        }, 10000)
+                    }
+                },
+                reset() {
+                    for (const team of this.teams) {
+                        team.score = 0
+                    }
+                    this.serving = 1
+                }
+            }
+        })
+    </script>
+</body>
+
+</html>
