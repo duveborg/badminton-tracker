@@ -189,10 +189,11 @@
                             if (words === 'reset') {
                                 this.reset()
                             } else {
-                                const team = this.teams.find(team => team.name.trim().toLowerCase().indexOf(words) !== -1)
+                                const team = this.teams.find(team => words.indexOf(team.name.trim().toLowerCase()) !== -1)
 
                                 if (team) {
                                     this.score(team)
+                                    break;
                                 }
                             }
                             
